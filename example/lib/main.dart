@@ -231,13 +231,13 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void setupAndroidAuto() {
+  Future<void> setupAndroidAuto() async {
     _flutterAndroidAuto.addListenerOnConnectionChange(onConnectionChange);
-    setInitialAndroidAutoRootTemplate();
+    await setInitialAndroidAutoRootTemplate();
   }
 
-  void setInitialAndroidAutoRootTemplate() {
-    FlutterAndroidAuto.setRootTemplate(
+  Future<void> setInitialAndroidAutoRootTemplate() async {
+    await FlutterAndroidAuto.setRootTemplate(
       template: AAListTemplate(
         title: 'Home',
         sections: [
@@ -396,7 +396,7 @@ class _MyAppState extends State<MyApp> {
         ],
       ),
     );
-    _flutterAndroidAuto.forceUpdateRootTemplate();
+    await _flutterAndroidAuto.forceUpdateRootTemplate();
   }
 
   void openAndroidAutoSelectableListTemplate() {
@@ -1384,11 +1384,11 @@ class _MyAppState extends State<MyApp> {
                       horizontal: 24,
                     ),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (Platform.isIOS) {
                       setInitialCarplayRootTemplate();
                     } else if (Platform.isAndroid) {
-                      setInitialAndroidAutoRootTemplate();
+                      await setInitialAndroidAutoRootTemplate();
                     }
                   },
                   child: const Text(

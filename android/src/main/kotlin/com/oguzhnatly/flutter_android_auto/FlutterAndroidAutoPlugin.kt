@@ -254,9 +254,14 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             result.error("Missing template", "template argument is required", null)
             return
         }
+        val tabBarTemplate = try {
+            FAATabBarTemplate.fromJson(data)
+        } catch (e: IllegalArgumentException) {
+            result.error("Invalid template", e.message, null)
+            return
+        }
 
         pluginScope.launch {
-            val tabBarTemplate = FAATabBarTemplate.fromJson(data)
             currentTabBarData = tabBarTemplate
             storeTemplateData(tabBarTemplate.elementId, "FAATabBarTemplate", data, false, currentScreen)
             storeTabData(tabBarTemplate)
@@ -275,6 +280,17 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         val data = templateDataByElementId[elementId]
         if (data == null) {
             result.error("No template found", "AAListTemplate not found with elementId: $elementId", null)
+            return
+        }
+        val parsedSections = sections.map { FAAListSection.fromJson(it) }
+        val hasSelectableList = parsedSections.any { it.isSelectable }
+        val isSingleUntitledList = parsedSections.size == 1 && parsedSections.first().title.isEmpty()
+        if (hasSelectableList && !isSingleUntitledList) {
+            result.error(
+                "Invalid template",
+                "A selectable AAListSection must be the only section in an AAListTemplate and must not have a title.",
+                null,
+            )
             return
         }
 
@@ -476,25 +492,30 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         addBackButton: Boolean = true,
         owningScreen: Screen? = null,
         result: MethodChannel.Result? = null,
-    ): Template? = when (runtimeType) {
-        "FAAListTemplate" -> getListTemplate(data, addBackButton, owningScreen)
-        "FAAGridTemplate" -> getGridTemplate(data, addBackButton, owningScreen)
-        "FAATabBarTemplate" -> {
-            val tabBarTemplate = FAATabBarTemplate.fromJson(data)
-            currentTabBarData = tabBarTemplate
-            storeTabData(tabBarTemplate)
-            if (activeTabContentId == null || tabBarTemplate.tabs.none { it.elementId == activeTabContentId }) {
-                activeTabContentId = tabBarTemplate.tabs.firstOrNull()?.elementId
+    ): Template? = try {
+        when (runtimeType) {
+            "FAAListTemplate" -> getListTemplate(data, addBackButton, owningScreen)
+            "FAAGridTemplate" -> getGridTemplate(data, addBackButton, owningScreen)
+            "FAATabBarTemplate" -> {
+                val tabBarTemplate = FAATabBarTemplate.fromJson(data)
+                currentTabBarData = tabBarTemplate
+                storeTabData(tabBarTemplate)
+                if (activeTabContentId == null || tabBarTemplate.tabs.none { it.elementId == activeTabContentId }) {
+                    activeTabContentId = tabBarTemplate.tabs.firstOrNull()?.elementId
+                }
+                buildNativeTabTemplate(tabBarTemplate)
             }
-            buildNativeTabTemplate(tabBarTemplate)
+            "FAAPaneTemplate" -> getPaneTemplate(data, addBackButton)
+            "FAAMessageTemplate" -> getMessageTemplate(data, addBackButton)
+            "FAALongMessageTemplate" -> getLongMessageTemplate(data, addBackButton)
+            else -> {
+                result?.error("Unsupported template type", "Template type: $runtimeType is not supported", null)
+                null
+            }
         }
-        "FAAPaneTemplate" -> getPaneTemplate(data, addBackButton)
-        "FAAMessageTemplate" -> getMessageTemplate(data, addBackButton)
-        "FAALongMessageTemplate" -> getLongMessageTemplate(data, addBackButton)
-        else -> {
-            result?.error("Unsupported template type", "Template type: $runtimeType is not supported", null)
-            null
-        }
+    } catch (e: IllegalArgumentException) {
+        result?.error("Invalid template", e.message, null)
+        null
     }
 
     private suspend fun buildNativeTabTemplate(tabBar: FAATabBarTemplate): Template {
