@@ -103,7 +103,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                result.error("Error: $e", null, null)
+                result.completeWithError(e)
             }
         }
         eventChannel.setStreamHandler(this)
@@ -177,7 +177,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             return
         }
 
-        pluginScope.launch {
+        pluginScope.launchMethodCall(result) {
             val alertTemplate = FAAAlertTemplate.fromJson(data)
             val messageTemplate = buildAlertMessageTemplate(alertTemplate)
 
@@ -204,7 +204,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
             currentAlertScreen = alertScreen
             carContext.getCarService(ScreenManager::class.java).push(alertScreen)
-            result.success(true)
+            true
         }
     }
 
@@ -261,7 +261,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             return
         }
 
-        pluginScope.launch {
+        pluginScope.launchMethodCall(result) {
             currentTabBarData = tabBarTemplate
             storeTemplateData(tabBarTemplate.elementId, "FAATabBarTemplate", data, false, currentScreen)
             storeTabData(tabBarTemplate)
@@ -270,7 +270,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             }
             currentTemplate = buildNativeTabTemplate(tabBarTemplate)
             currentScreen?.invalidate()
-            result.success(true)
+            true
         }
     }
 
@@ -358,7 +358,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
         val elementId = data["_elementId"] as? String ?: ""
 
-        pluginScope.launch {
+        pluginScope.launchMethodCall(result) {
             val newScreen = object : Screen(carContext) {
                 override fun onGetTemplate(): Template = templatesByElementId[elementId]
                     ?: getTemplateBlocking(runtimeType, data, true, this)
@@ -378,13 +378,12 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 }
             }
 
-            val template = buildTemplateForType(runtimeType, data, true, newScreen, result)
-            if (template == null) return@launch
+            val template = buildTemplateForType(runtimeType, data, true, newScreen)
 
             storeTemplateData(elementId, runtimeType, data, true, newScreen)
             templatesByElementId[elementId] = template
             carContext.getCarService(ScreenManager::class.java).push(newScreen)
-            result.success(true)
+            true
         }
     }
 
@@ -397,16 +396,15 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
         val elementId = data["_elementId"] as? String ?: ""
 
-        pluginScope.launch {
-            val template = buildTemplateForType(runtimeType, data, false, currentScreen, result)
-            if (template == null) return@launch
+        pluginScope.launchMethodCall(result) {
+            val template = buildTemplateForType(runtimeType, data, false, currentScreen)
 
             currentRootTemplateElementId = elementId
             currentTemplate = template
             storeTemplateData(elementId, runtimeType, data, false, currentScreen)
             templatesByElementId[elementId] = template
             currentScreen?.invalidate()
-            result.success(true)
+            true
         }
     }
 
@@ -418,7 +416,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             return
         }
 
-        pluginScope.launch {
+        pluginScope.launchMethodCall(result) {
             val template = if (currentTabBarData != null && currentTabBarData!!.tabs.any { it.elementId == elementId }) {
                 buildNativeTabTemplate(currentTabBarData!!)
             } else {
@@ -427,10 +425,8 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                     data,
                     templateBackButtons[elementId] ?: true,
                     screensByElementId[elementId],
-                    result,
                 )
             }
-            if (template == null) return@launch
 
             if (currentTabBarData != null && currentTabBarData!!.tabs.any { it.elementId == elementId }) {
                 currentTemplate = template
@@ -444,7 +440,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                     screensByElementId[elementId]?.invalidate()
                 }
             }
-            result.success(true)
+            true
         }
     }
 
@@ -482,8 +478,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         addBackButton: Boolean,
         owningScreen: Screen?,
     ): Template = kotlinx.coroutines.runBlocking {
-        buildTemplateForType(runtimeType, data, addBackButton, owningScreen, null)
-            ?: ListTemplate.Builder().setLoading(true).build()
+        buildTemplateForType(runtimeType, data, addBackButton, owningScreen)
     }
 
     private suspend fun buildTemplateForType(
@@ -491,31 +486,22 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         data: Map<String, Any?>,
         addBackButton: Boolean = true,
         owningScreen: Screen? = null,
-        result: MethodChannel.Result? = null,
-    ): Template? = try {
-        when (runtimeType) {
-            "FAAListTemplate" -> getListTemplate(data, addBackButton, owningScreen)
-            "FAAGridTemplate" -> getGridTemplate(data, addBackButton, owningScreen)
-            "FAATabBarTemplate" -> {
-                val tabBarTemplate = FAATabBarTemplate.fromJson(data)
-                currentTabBarData = tabBarTemplate
-                storeTabData(tabBarTemplate)
-                if (activeTabContentId == null || tabBarTemplate.tabs.none { it.elementId == activeTabContentId }) {
-                    activeTabContentId = tabBarTemplate.tabs.firstOrNull()?.elementId
-                }
-                buildNativeTabTemplate(tabBarTemplate)
+    ): Template = when (runtimeType) {
+        "FAAListTemplate" -> getListTemplate(data, addBackButton, owningScreen)
+        "FAAGridTemplate" -> getGridTemplate(data, addBackButton, owningScreen)
+        "FAATabBarTemplate" -> {
+            val tabBarTemplate = FAATabBarTemplate.fromJson(data)
+            currentTabBarData = tabBarTemplate
+            storeTabData(tabBarTemplate)
+            if (activeTabContentId == null || tabBarTemplate.tabs.none { it.elementId == activeTabContentId }) {
+                activeTabContentId = tabBarTemplate.tabs.firstOrNull()?.elementId
             }
-            "FAAPaneTemplate" -> getPaneTemplate(data, addBackButton)
-            "FAAMessageTemplate" -> getMessageTemplate(data, addBackButton)
-            "FAALongMessageTemplate" -> getLongMessageTemplate(data, addBackButton)
-            else -> {
-                result?.error("Unsupported template type", "Template type: $runtimeType is not supported", null)
-                null
-            }
+            buildNativeTabTemplate(tabBarTemplate)
         }
-    } catch (e: IllegalArgumentException) {
-        result?.error("Invalid template", e.message, null)
-        null
+        "FAAPaneTemplate" -> getPaneTemplate(data, addBackButton)
+        "FAAMessageTemplate" -> getMessageTemplate(data, addBackButton)
+        "FAALongMessageTemplate" -> getLongMessageTemplate(data, addBackButton)
+        else -> throw IllegalArgumentException("Template type $runtimeType is not supported")
     }
 
     private suspend fun buildNativeTabTemplate(tabBar: FAATabBarTemplate): Template {
@@ -575,8 +561,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     ): Template {
         val data = templateDataByElementId[tab.elementId] ?: tab.templateData
         val runtimeType = templateRuntimeTypes[tab.elementId] ?: tab.runtimeType
-        return buildTemplateForType(runtimeType, data, addBackButton, currentScreen, null)
-            ?: ListTemplate.Builder().setLoading(true).build()
+        return buildTemplateForType(runtimeType, data, addBackButton, currentScreen)
     }
 
     private fun resolveTabTitle(tab: FAATabBarItem): String {
