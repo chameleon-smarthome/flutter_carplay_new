@@ -1,3 +1,9 @@
+## 1.6.5 - 2026-08-21
+
+- Fix Android Auto list template startup by validating selectable lists before they reach the host (#120) (ty @JulianBissekkou)
+- Complete Android Auto method-channel calls when coroutine handlers throw (#133, #134) (ty @JulianBissekkou)
+- Restore the README star history chart (#135)
+
 ## 1.6.4 - 2026-07-06
 
 - Move the Android Auto message template docs into the Android Auto API usage section (#129) (ty @EArminjon)
