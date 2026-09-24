@@ -243,6 +243,17 @@ class FlutterAndroidAuto {
     return isCompleted ?? false;
   }
 
+  /// Switches the currently visible root tab to the one identified by
+  /// [elementId] (the tab's own `id`, e.g. `"faa_tab_home"`), without
+  /// requiring the user to tap the tab bar themselves.
+  static Future<bool> selectTab({required String elementId}) async {
+    final bool? isCompleted = await _androidAutoController
+        .flutterToNativeModule(FAAChannelTypes.selectTabBarItem, {
+      'elementId': elementId,
+    });
+    return isCompleted ?? false;
+  }
+
   static Future<bool> showSharedNowPlaying() async => false;
 
   static String _getAARuntimeTypeString(AATemplate template) {

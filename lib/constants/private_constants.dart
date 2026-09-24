@@ -63,4 +63,5 @@ enum FAAChannelTypes {
   onGridButtonSelectedComplete,
   updateMessageTemplate,
   updateLongMessageTemplate,
+  selectTabBarItem,
 }

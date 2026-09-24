@@ -100,6 +100,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                     FAAChannelTypes.setAlert.name -> setAlert(call, result)
                     FAAChannelTypes.closePresent.name -> closePresent(call, result)
                     FAAChannelTypes.updateTabBarTemplates.name -> updateTabBarTemplates(call, result)
+                    FAAChannelTypes.selectTabBarItem.name -> selectTabBarItem(call, result)
                     else -> result.notImplemented()
                 }
             } catch (e: Exception) {
@@ -271,6 +272,32 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             }
             currentTemplate = buildNativeTabTemplate(tabBarTemplate)
             currentScreen?.invalidate()
+            true
+        }
+    }
+
+    // Lets Dart programmatically switch which root tab is showing (e.g. jump
+    // back to the home tab after an action taken from the settings tab),
+    // without waiting for the user to tap a tab themselves.
+    private fun selectTabBarItem(call: MethodCall, result: MethodChannel.Result) {
+        val elementId = call.argument<String>("elementId")
+        if (elementId == null) {
+            result.error("Missing elementId", "elementId argument is required", null)
+            return
+        }
+
+        pluginScope.launchMethodCall(result) {
+            val tabBarData = currentTabBarData
+            if (tabBarData == null || tabBarData.tabs.none { it.elementId == elementId }) {
+                return@launchMethodCall false
+            }
+
+            if (activeTabContentId != elementId) {
+                activeTabContentId = elementId
+                currentTemplate = buildNativeTabTemplate(tabBarData)
+                currentScreen?.invalidate()
+            }
+
             true
         }
     }
