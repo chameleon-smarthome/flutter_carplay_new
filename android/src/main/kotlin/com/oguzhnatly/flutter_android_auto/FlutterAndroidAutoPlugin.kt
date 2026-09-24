@@ -32,6 +32,7 @@ import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
@@ -504,17 +505,46 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         else -> throw IllegalArgumentException("Template type $runtimeType is not supported")
     }
 
-    private suspend fun buildNativeTabTemplate(tabBar: FAATabBarTemplate): Template {
+    private suspend fun buildNativeTabTemplate(
+        tabBar: FAATabBarTemplate,
+        // Lets a caller (showLoadingForTemplate) swap in a placeholder for
+        // just ONE tab's inner content while keeping the outer result a real
+        // TabTemplate, instead of collapsing the whole root template down to
+        // a bare Grid/ListTemplate while an action is pending.
+        overrideTabId: String? = null,
+        overrideTemplate: Template? = null,
+    ): Template {
         val activeId = activeTabContentId ?: tabBar.tabs.firstOrNull()?.elementId
         val activeTab = tabBar.tabs.find { it.elementId == activeId }
             ?: tabBar.tabs.firstOrNull()
             ?: return ListTemplate.Builder().setLoading(true).build()
 
-        val carContext = AndroidAutoService.session?.carContext
+        // Right at Android Auto connect, this can run before
+        // AndroidAutoService.onCreateSession() has assigned `session`, which used
+        // to make us silently treat the car as "not supporting TabTemplate" and
+        // return a bare ListTemplate/list-based template here. Once the session
+        // attached a moment later, subsequent calls would switch to a real
+        // TabTemplate, and the car host's back-navigation baseline (recorded
+        // from whichever template type this function returned first) would
+        // then crash on the first back operation with "BACK operation failed.
+        // Template types differ". Wait briefly for the session/carContext
+        // instead of guessing.
+        var carContext = AndroidAutoService.session?.carContext
+        var waitedMs = 0L
+        while (carContext == null && waitedMs < 2000L) {
+            delay(25)
+            waitedMs += 25
+            carContext = AndroidAutoService.session?.carContext
+        }
+
         val supportsTabTemplate = carContext != null && carContext.getCarAppApiLevel() >= 6
 
         if (tabBar.tabs.size < 2 || !supportsTabTemplate) {
-            return buildInnerTemplateForTab(activeTab, false)
+            return if (activeTab.elementId == overrideTabId && overrideTemplate != null) {
+                overrideTemplate
+            } else {
+                buildInnerTemplateForTab(activeTab, false)
+            }
         }
 
         val cappedTabs = tabBar.tabs.take(4)
@@ -550,7 +580,11 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             )
         }
 
-        val innerTemplate = buildInnerTemplateForTab(resolvedActiveTab, false)
+        val innerTemplate = if (resolvedActiveTab.elementId == overrideTabId && overrideTemplate != null) {
+            overrideTemplate
+        } else {
+            buildInnerTemplateForTab(resolvedActiveTab, false)
+        }
         builder.setTabContents(TabContents.Builder(innerTemplate).build())
         return builder.build()
     }
@@ -925,9 +959,21 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         pendingTemplateElementId = templateElementId
         val loading = buildLoadingTemplate(runtimeType, loadingMessage, templateBackButtons[templateElementId] ?: false)
 
-        if (currentTabBarData != null && currentTabBarData!!.tabs.any { it.elementId == templateElementId }) {
-            currentTemplate = loading
-            currentScreen?.invalidate()
+        val tabBarData = currentTabBarData
+        if (tabBarData != null && tabBarData.tabs.any { it.elementId == templateElementId }) {
+            // This interaction happened inside one of the root tab bar's own
+            // tabs (e.g. tapping a device toggle in the home tab's list).
+            // The root screen's template must stay a TabTemplate the whole
+            // time it's on screen, or the next back-navigation crashes with
+            // "BACK operation failed. Template types differ" once the tab
+            // content is rebuilt for real afterwards. So rebuild the full
+            // TabTemplate here too, just with this one tab's content swapped
+            // for the loading placeholder, instead of replacing the root
+            // template with a bare Grid/ListTemplate.
+            pluginScope.launch {
+                currentTemplate = buildNativeTabTemplate(tabBarData, overrideTabId = templateElementId, overrideTemplate = loading)
+                currentScreen?.invalidate()
+            }
             return
         }
 
