@@ -1,3 +1,38 @@
+## 1.7.0+3 - Unreleased
+
+* Restore the README star history chart and add a GitHub Sponsors badge above it.
+* Show contributor avatars beneath the chart at their natural size instead of listing individual contributors in prose.
+* Keep package APIs, native behavior and dependencies unchanged.
+
+## 1.7.0+2 - 2026-10-05
+
+* Fix the mobile README banner and dark appearance Android Auto wordmark on pub.dev.
+* Use immutable HTTPS links for README images, including responsive picture sources that pub.dev does not rewrite.
+* Preserve the existing artwork, original resolution and lossless WebP quality. Package APIs and native behavior are unchanged.
+
+## 1.7.0+1 - 2026-10-05
+
+* Rewrite the README with a clearer introduction, platform setup, native template catalogue and expandable examples.
+* Submit Android roots in the README example after the car connects and clarify when tabs and raster artwork need a live car context.
+* Add dashboard banners and original CarPlay and Android Auto branding, used selectively across the documentation.
+* Use lossless WebP images at their original resolution to reduce documentation download sizes.
+* Refresh contribution and security reporting guidance, and add an MIT licensing guide without changing the legal terms.
+* Update the package description. Dart APIs, native behavior and dependencies are unchanged.
+
+## 1.7.0 - 2026-10-04
+
+* Add modal CarPlay voice control states, activation and dismissal callbacks (#140, #2).
+* Support iOS 26.4 voice action buttons and navigation buttons with availability checks.
+* Validate state and button limits, wait for images, and handle modal cancellation and disconnect.
+* Add an optional speech recognition and TTS example with a separate conversational entry point and entitlement file.
+* Document category restrictions, rate limiting, audio ownership and contribution standards.
+
+## 1.6.6 - 2026-09-30
+
+- Migrate the Android plugin to Flutter's built-in Kotlin so it no longer applies the Kotlin Gradle Plugin, which clears the KGP warning and keeps AGP 9 builds with `android.builtInKotlin=true` working (#138, #139) (ty @pierrejean75)
+- Raise the minimum supported versions to Flutter 3.44 and Dart 3.12, as required by the built-in Kotlin migration (#139)
+- Update the example app Android toolchain to Gradle 8.14, AGP 8.11.1 and Kotlin 2.2.20 (#139)
+
 ## 1.6.5 - 2026-08-21
 
 - Fix Android Auto list template startup by validating selectable lists before they reach the host (#120) (ty @JulianBissekkou)

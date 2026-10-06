@@ -2,6 +2,8 @@
 
 import 'dart:io';
 
+import 'voice_control_example.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_carplay/controllers/android_auto_controller.dart';
 import 'package:flutter_carplay/controllers/carplay_controller.dart';
@@ -19,6 +21,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final VoiceControlExample? _voiceExample = Platform.isIOS
+      ? VoiceControlExample()
+      : null;
   ConnectionStatusTypes connectionStatus = ConnectionStatusTypes.unknown;
   final FlutterCarplay _flutterCarplay = FlutterCarplay();
   final FlutterAndroidAuto _flutterAndroidAuto = FlutterAndroidAuto();
@@ -220,11 +225,13 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    _voiceExample?.dispose();
     _flutterCarplay.removeListenerOnConnectionChange();
     super.dispose();
   }
 
   void onConnectionChange(ConnectionStatusTypes status) {
+    _voiceExample?.connectionChanged(status);
     // Do things when carplay/android auto state is connected, background or disconnected
     setState(() {
       connectionStatus = status;
@@ -285,11 +292,14 @@ class _MyAppState extends State<MyApp> {
                                             subtitle: 'Click to pop',
                                             image:
                                                 'https://storage.googleapis.com/cms-storage-bucket/icon_flutter.0dbfcc7a59cd1cf16282.png',
-                                            onPress: (complete,
-                                                AAListItem item) async {
-                                              FlutterAndroidAuto.pop();
-                                              complete();
-                                            },
+                                            onPress:
+                                                (
+                                                  complete,
+                                                  AAListItem item,
+                                                ) async {
+                                                  FlutterAndroidAuto.pop();
+                                                  complete();
+                                                },
                                           ),
                                           AAListItem(
                                             title: 'Page 2',
@@ -297,11 +307,14 @@ class _MyAppState extends State<MyApp> {
                                                 'Click to open pop to root',
                                             image:
                                                 'https://storage.googleapis.com/cms-storage-bucket/icon_flutter.0dbfcc7a59cd1cf16282.png',
-                                            onPress: (complete,
-                                                AAListItem item) async {
-                                              FlutterAndroidAuto.popToRoot();
-                                              complete();
-                                            },
+                                            onPress:
+                                                (
+                                                  complete,
+                                                  AAListItem item,
+                                                ) async {
+                                                  FlutterAndroidAuto.popToRoot();
+                                                  complete();
+                                                },
                                           ),
                                         ],
                                       ),
@@ -438,7 +451,8 @@ class _MyAppState extends State<MyApp> {
   void openAndroidAutoLongMessageTemplate() {
     final template = AALongMessageTemplate(
       title: 'Safety information',
-      message: 'Keep your attention on the road. This longer Android Auto '
+      message:
+          'Keep your attention on the road. This longer Android Auto '
           'message template is intended for content that needs more space than '
           'a simple message screen can provide.',
     );
@@ -448,7 +462,8 @@ class _MyAppState extends State<MyApp> {
     Future.delayed(const Duration(seconds: 3), () {
       template.update(
         title: 'Safety information updated',
-        message: 'The long message template has been rebuilt and refreshed. '
+        message:
+            'The long message template has been rebuilt and refreshed. '
             'Use this template for longer informational text that should remain '
             'readable in Android Auto.',
       );
@@ -1323,6 +1338,18 @@ class _MyAppState extends State<MyApp> {
               spacing: 20,
               runSpacing: 20,
               children: [
+                if (Platform.isIOS)
+                  Builder(
+                    builder: (context) => ElevatedButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              VoiceControlExamplePage(example: _voiceExample!),
+                        ),
+                      ),
+                      child: const Text('Voice control'),
+                    ),
+                  ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     textStyle: const TextStyle(fontSize: 15),
