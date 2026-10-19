@@ -1,8 +1,12 @@
-## 1.7.0+3 - Unreleased
+## 1.7.1 - 2026-10-06
 
 * Restore the README star history chart and add a GitHub Sponsors badge above it.
 * Show contributor avatars beneath the chart at their natural size instead of listing individual contributors in prose.
-* Keep package APIs, native behavior and dependencies unchanged.
+* Size CarPlay artwork against the car display and native image slots, preserve original colors, and support global and per-image size overrides (#136).
+* Restore grid button callbacks inside CarPlay tabs and add optional loading feedback without breaking existing zero argument callbacks (#137).
+* Clarify bundled custom SVG icons and require Car App API level 8 for the media example (#130, #131).
+* Complete cancelled Android Auto method calls when the Flutter engine detaches, while retaining native exception reporting (#133).
+* Ignore stale CarPlay artwork after overlapping size, tint and source updates, including changed image bytes for the same path.
 
 ## 1.7.0+2 - 2026-10-05
 
